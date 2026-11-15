@@ -1,0 +1,46 @@
+name: Generate Quiz Video
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *" # كل 6 ساعات (UTC)، عدّله كما تريد
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install system dependencies (FFmpeg, fonts, canvas libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-dejavu-core \
+            libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libjpeg-turbo8 \
+            libgif7 librsvg2-2 libpixman-1-0
+          fc-cache -f
+
+      - name: Install npm packages
+        run: npm install
+
+      - name: Generate video
+        env:
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+        run: node index.js
+
+      - name: Upload video
+        if: hashFiles('quiz_output.mp4') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: quiz-video-${{ github.run_number }}
+          path: quiz_output.mp4
+          retention-days: 14
